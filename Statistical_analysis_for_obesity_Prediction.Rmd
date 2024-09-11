@@ -1,0 +1,667 @@
+---
+title: "team009final"
+output: html_document
+date: "2024-05-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(leaps)
+library(MASS)
+library(ggplot2)
+library(readr)
+library(reshape2)
+library(boot)
+library(class)
+library(klaR)
+library(nnet)
+library(dplyr)
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+data <- read.csv("obesity.csv")
+data$BMI <- round(data$Weight / (data$Height^2), 2)
+head(data,10)
+str(data)
+unique(data$NObeyesdad)
+overweight_data <- data[data$NObeyesdad == "Overweight_Level_I", ]
+
+# Printing the number of rows in the filtered data
+print(nrow(overweight_data))
+
+
+pie_colors <- c("lightblue", "lightgreen", "orange", "brown", "lavender", "lightyellow", "lightpink")
+target_count <- table(data$NObeyesdad)
+target_count <- as.data.frame(target_count)
+colnames(target_count) <- c("NObeyesdad", "Count")
+
+
+target_count$Percentage <- target_count$Count / sum(target_count$Count) * 100
+# Create a pie chart with ggplot2
+ggplot(target_count, aes(x = "", y = Count, fill = NObeyesdad)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y") +
+  scale_fill_manual(values = pie_colors) +
+  labs(title = "Distribution of Obesity Levels") +
+  theme_void() +
+  theme(legend.position = "right") +
+  guides(fill = guide_legend(title = "Obesity Levels")) +
+  geom_text(
+    aes(label = sprintf("%.1f%%", Percentage)),
+    position = position_stack(vjust = 0.5),    
+    size = 4                                   
+  )
+
+# Create a bar plot for obesity types
+g <- ggplot(data, aes(x=NObeyesdad))
+g + geom_bar(aes(fill=NObeyesdad), width = 0.5) + 
+  theme(axis.text.x = element_text(angle=65, vjust=0.6)) +
+  labs(title="Histogram on Categorical Variable", 
+       subtitle="Distribution of Different Obesity Types",
+       x = "Obesity Type", y = "Count")
+
+
+theme_set(theme_classic())
+
+# Subset for specific types of obesity
+obesity_type <- data[data$NObeyesdad %in% c("Obesity_Type_I", "Obesity_Type_II", "Obesity_Type_III"), ]
+head(obesity_type)
+
+# Subset for specific levels of overweight
+overweight_level <- data[data$NObeyesdad %in% c("Overweight_Level_I", "Overweight_Level_II"), ]
+head(overweight_level)
+others <- data[!data$NObeyesdad %in% c("Obesity_Type_I", "Obesity_Type_II", "Obesity_Type_III", "Overweight_Level_I", "Overweight_Level_II"), ]
+head(others)
+
+
+
+
+theme_set(theme_bw())
+
+# plot
+g <- ggplot(data = data, aes(x=Age, y= NObeyesdad,fill=NObeyesdad))
+g + geom_violin() + 
+  labs(title="Age vs NObeyesdad",
+       caption="Source: mpg",
+       x="Age",
+       y="NObeyesdad")
+ggplot(data, aes(x=Age, fill=NObeyesdad)) +
+  geom_density(alpha=0.4)+
+  xlim(14,40)+labs(title='Density Plot for Age',x='Age',y='Density')+theme_minimal()
+
+ggplot(others, aes(x = Age)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Age Distribution for Normal Weight and Insufficient Types")+
+    theme(axis.text = element_text(size = 6))
+
+
+ggplot(obesity_type, aes(x = Age)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Age Distribution for Different Obesity Types")+
+    theme(axis.text = element_text(size = 6))
+
+ggplot(overweight_level, aes(x = Age)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Age Distribution for Different Overweight Types")+
+    theme(axis.text = element_text(size = 6))
+
+g <- ggplot(data = data, aes(x=Weight, y= NObeyesdad,fill=NObeyesdad))
+g + geom_violin() + 
+  labs(title="Weight vs NObeyesdad",
+       caption="Source: mpg",
+       x="Weight",
+       y="NObeyesdad")
+
+ggplot(data, aes(x=Weight, fill=NObeyesdad)) +
+  geom_density(alpha=0.4)+
+  xlim(30,170)+labs(title='Density Plot for Weight',x='Weight',y='Density')+theme_minimal()
+
+ggplot(others, aes(x = Weight)) +
+  geom_histogram(binwidth = 1, fill = "lavender", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Weight Distribution for Normal Weight and Insufficient Types")+
+    theme(axis.text = element_text(size = 6))
+
+
+
+ggplot(obesity_type, aes(x = Weight)) +
+  geom_histogram(binwidth = 1, fill = "lavender", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Weight Distribution for Different Obesity Types")+
+    theme(axis.text = element_text(size = 6))
+
+ggplot(overweight_level, aes(x = Weight)) +
+  geom_histogram(binwidth = 1, fill = "lavender", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Weight Distribution for Different Overweight Types")+
+    theme(axis.text = element_text(size = 6))
+
+g <- ggplot(data = data, aes(x=Height, y= NObeyesdad,fill=NObeyesdad))
+g + geom_violin() + 
+  labs(title="Height vs NObeyesdad",
+       caption="Source: mpg",
+       x="Height",
+       y="NObeyesdad")
+
+ggplot(data, aes(x=Height, fill=NObeyesdad)) +
+  geom_density(alpha=0.4)+
+  xlim(1.4,2.2)+labs(title='Density Plot for Height',x='Height',y='Density')+theme_minimal()
+
+ggplot(others, aes(x = Height)) +
+  geom_histogram(binwidth = 1, fill = "lightgray", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Height Distribution for Normal Weight and Insufficient Types")+
+    theme(axis.text = element_text(size = 6))
+
+
+ggplot(obesity_type, aes(x = Height)) +
+  geom_histogram(binwidth = 1, fill = "lightgray", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Height Distribution for Different Obesity Types")+
+    theme(axis.text = element_text(size = 6))
+
+ggplot(overweight_level, aes(x = Height)) +
+  geom_histogram(binwidth = 1, fill = "lightgray", color = "black") +
+  facet_wrap(~NObeyesdad, scales = "free") +
+  labs(title = "Age Distribution for Different Overweight Types")+
+    theme(axis.text = element_text(size = 6))
+
+ggplot(data, aes(x=BMI, fill=NObeyesdad)) +
+  geom_density(alpha=0.4)+
+  xlim(-0,60)+labs(title='Density Plot for BMI',x='BMI',y='Density')+theme_minimal()
+
+g <- ggplot(data, aes(x = NObeyesdad))
+g + geom_bar(aes(fill = Gender), width = 0.5, position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  labs(title = "Distribution of Different Obesity Types by Gender",
+       x = "Obesity Type", y = "Count")
+
+g <- ggplot(data, aes(x = NObeyesdad))
+g + geom_bar(aes(fill = FAVC), width = 0.5, position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  labs(title ="Distribution of Different Obesity Types by FAVC",
+       x = "Obesity Type", y = "Count")
+
+g <- ggplot(data, aes(x = NObeyesdad))
+g + geom_bar(aes(fill = CALC), width = 0.5, position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  labs(title = "Distribution of Different Obesity Types by CALC",
+       x = "Obesity Type", y = "Count")
+
+g <- ggplot(data, aes(x = NObeyesdad))
+g + geom_bar(aes(fill = SCC), width = 0.5, position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  labs(title = "Distribution of Different Obesity Types by SCC",
+       x = "Obesity Type", y = "Count")
+g <- ggplot(data, aes(x = NObeyesdad))
+g + geom_bar(aes(fill = SMOKE), width = 0.5, position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  labs(title = "Distribution of Different Obesity Types by SMOKE",
+       x = "Obesity Type", y = "Count")
+g <- ggplot(data, aes(x = NObeyesdad))
+g + geom_bar(aes(fill = CAEC), width = 0.5, position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  labs(title ="Distribution of Different Obesity Types by CAEC",
+       x = "Obesity Type", y = "Count")
+g <- ggplot(data, aes(x = NObeyesdad))
+g + geom_bar(aes(fill = MTRANS), width = 0.5, position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  labs(title = "Distribution of Different Obesity Types by MTRANS",
+       x = "Obesity Type", y = "Count")
+
+ggplot(data, aes(x = FCVC, y =NObeyesdad )) +
+  geom_point() + 
+  labs(title = "Scatterplot of Obesity Levels vs. FCVC",
+       x = "Frequency of Vegetables Taken", 
+       y = "Obesity Levels") +
+  theme_minimal()
+
+ggplot(data, aes(x = CH2O, y =NObeyesdad )) +
+  geom_point() + 
+  labs(title = "Scatterplot of Obesity Levels vs. FCVC",
+       x = "Frequency of Water Consumed", 
+       y = "Obesity Levels") +
+  theme_minimal()
+
+ggplot(data, aes(x = FAF, y =NObeyesdad )) +
+  geom_point() + 
+  labs(title = "Scatterplot of Obesity Levels vs. FCVC",
+       x = "Frequency of Physical Activity Done", 
+       y = "Obesity Levels") +
+  theme_minimal()
+
+ggplot(data, aes(x = TUE, y =NObeyesdad )) +
+  geom_point() + 
+  labs(title = "Scatterplot of Obesity Levels vs. FCVC",
+       x = "Frequency of Usage of Technological Devices", 
+       y = "Obesity Levels") +
+  theme_minimal()
+
+
+
+
+
+
+# Convert character variables to factors
+data$Gender <- factor(data$Gender, levels = unique(data$Gender))
+data$CALC <- factor(data$CALC, levels = unique(data$CALC))
+data$FAVC <- factor(data$FAVC, levels = unique(data$FAVC))
+data$SCC <- factor(data$SCC, levels = unique(data$SCC))
+data$SMOKE <- factor(data$SMOKE, levels = unique(data$SMOKE))
+data$family_history_with_overweight <- factor(data$family_history_with_overweight, levels = unique(data$family_history_with_overweight))
+data$CAEC <- factor(data$CAEC, levels = unique(data$CAEC))
+data$MTRANS <- factor(data$MTRANS, levels = unique(data$MTRANS))
+data$NObeyesdad <- factor(data$NObeyesdad, levels = unique(data$NObeyesdad))
+
+# Check the structure of the data frame
+str(data)
+
+numeric_data <- data[sapply(data, is.numeric)]
+
+correlation_matrix <- cor(numeric_data, use = "pairwise.complete.obs")  # Handles missing data
+
+# Print the correlation matrix
+print(correlation_matrix)
+
+
+
+# Melt the correlation matrix to make it suitable for ggplot2
+melted_corr <- melt(correlation_matrix)
+
+# Create a heatmap of the correlation matrix
+ggplot(melted_corr, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +  # Adds white borders to separate the tiles
+  geom_text(aes(label = sprintf("%.2f", value)), size = 3, color = "black") +  # Adds correlation coefficients as labels
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, 
+                       limits = c(-1, 1), space = "Lab", 
+                       name = "Correlation") +  # Sets the color gradient
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    axis.text.y = element_text(angle = 0, vjust = 0.5),
+    axis.title = element_blank(),  # Removes axis titles
+    legend.position = "bottom"
+  ) +
+  labs(fill = 'Correlation Coefficient')  # Legend label
+
+
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+library(e1071)
+library(gmodels)
+fwd<-regsubsets(NObeyesdad~.,data=data,nvmax=16, method='forward')
+summary(fwd)
+bwd<-regsubsets(NObeyesdad~.,data=data,nvmax=16, method='backward')
+summary(bwd)
+
+set.seed(100515)
+index<- sample(2,nrow(data),prob = c(0.8,0.2),replace=TRUE)
+train_data=data[index==1,]
+test_data<-data[index==2,]
+print(dim(train_data))
+print(dim(test_data)) 
+train_data <- na.omit(train_data)  
+test_data <- na.omit(test_data) 
+Model1 <- multinom(NObeyesdad ~., data = train_data)
+summary(Model1)
+test_predictions <- predict(Model1, newdata = test_data)
+
+test_actual_classes <- test_data$NObeyesdad
+multinom_accuracy <- mean(test_predictions == test_actual_classes)
+print(paste("Testing Accuracy of the multinomial logistic regression model:", multinom_accuracy))
+
+
+naive_model <- naiveBayes(NObeyesdad ~., data = train_data)
+summary(naive_model)
+predictions <- predict(naive_model, test_data)
+
+# Calculate accuracy
+actual <- test_data$NObeyesdad  # The actual labels
+correct <- sum(predictions == actual)  # Count correct predictions
+nb_accuracy <- correct / length(actual)  # Calculate accuracy
+
+# Print the accuracy
+print(paste("Accuracy of the Naive Bayes model:", nb_accuracy))
+lda_model <- lda(NObeyesdad~., train_data)
+summary(lda_model)
+predictions <- predict(lda_model, newdata = test_data)
+predicted_labels <- predictions$class
+actual_labels <- test_data$NObeyesdad
+
+lda_accuracy <- sum(predicted_labels == actual_labels) / length(actual_labels)
+
+# Print the accuracy
+print(paste("Accuracy of the LDA model:", lda_accuracy))
+library(randomForest)
+actual <- test_data$NObeyesdad  # The actual labels
+correct <- sum(predictions == actual)  # Count correct predictions
+accuracy <- correct / length(actual)  # Calculate accuracy
+
+
+# Impute missing values with mean
+ 
+
+
+# Fit Random Forest model on imputed data
+rf_model_imputed <- randomForest(NObeyesdad ~ ., data = train_data)
+
+# Predict using Random Forest model on test data
+rf_pred_imputed <- predict(rf_model_imputed, newdata = test_data)
+
+# Evaluate Random Forest model on imputed data
+rf_accuracy <- mean(rf_pred_imputed == test_data$NObeyesdad)
+print(paste("Random Forest Accuracy (with imputed data):", rf_accuracy))
+
+
+svm_model <- svm(NObeyesdad ~ ., data = train_data)
+
+svm_pred <- predict(svm_model, newdata = test_data)
+
+svm_accuracy <- mean(svm_pred == test_data$NObeyesdad)
+print(paste("SVM Accuracy:", svm_accuracy))
+
+
+library(rpart)
+library(rpart.plot)
+library(nnet)
+library(caret)
+library(class)
+
+# Fit the decision tree model using rpart
+tree_model <- rpart(NObeyesdad ~ ., data = train_data, method = "class")
+
+# Plot the decision tree
+rpart.plot(tree_model, type = 4, extra = 101, fallen.leaves = TRUE)
+tree_predictions <- predict(tree_model, newdata = test_data, type = "class")
+tree_actual_classes <- test_data$NObeyesdad
+
+# Calculate accuracy: proportion of correct predictions
+tree_accuracy <- mean(tree_predictions == tree_actual_classes)
+# Print the testing accuracy
+print(paste("Testing Accuracy of the decision tree model:", tree_accuracy))
+rpart.plot(tree_model, type = 4, extra = 101, fallen.leaves = TRUE)
+
+# Normalize the numeric features
+preproc <- preProcess(train_data[, sapply(train_data, is.numeric)], method = c("center", "scale"))
+train_data_norm <- predict(preproc, train_data)
+test_data_norm <- predict(preproc, test_data)
+
+nn_model <- nnet(NObeyesdad ~ ., data = train_data_norm, size = 3, maxit = 200)
+
+# Predict using the neural network model on test data
+nn_predictions <- predict(nn_model, newdata = test_data_norm, type = "class")
+
+nn_predictions <- factor(nn_predictions, levels = levels(test_data$NObeyesdad))
+
+# Calculate accuracy
+nn_accuracy <- mean(nn_predictions == test_data$NObeyesdad)
+print(paste("Neural Network Accuracy:", nn_accuracy))
+
+# Calculate confusion matrix
+conf_matrix <- confusionMatrix(nn_predictions, test_data$NObeyesdad)
+
+# Calculate sensitivity and specificity
+nn_sensitivity <- conf_matrix$byClass["Sensitivity"]
+nn_specificity <- conf_matrix$byClass["Specificity"]
+
+print(paste("Neural Network Sensitivity:", nn_sensitivity))
+print(paste("Neural Network Specificity:", nn_specificity))
+
+train_data_normalized <- as.data.frame(scale(train_data[ , sapply(train_data, is.numeric)]))
+test_data_normalized <- as.data.frame(scale(test_data[ , sapply(test_data, is.numeric)]))
+
+# Train a kNN model
+knn_model <- knn(train = train_data_normalized, test = test_data_normalized, cl = train_data$NObeyesdad, k = 5)
+
+# Convert predictions and actual values to factors with the same levels
+knn_model <- factor(knn_model, levels = levels(test_data$NObeyesdad))
+
+# Calculate accuracy for kNN model
+knn_accuracy <- mean(knn_model == test_data$NObeyesdad)
+print(paste("kNN Accuracy:", knn_accuracy))
+
+# Calculate confusion matrix for kNN model
+conf_matrix_knn <- confusionMatrix(knn_model, test_data$NObeyesdad)
+
+# Calculate sensitivity and specificity for kNN model
+knn_sensitivity <- conf_matrix_knn$byClass["Sensitivity"]
+knn_specificity <- conf_matrix_knn$byClass["Specificity"]
+
+print(paste("kNN Sensitivity:", knn_sensitivity))
+print(paste("kNN Specificity:", knn_specificity))
+
+# Combine all model accuracies for comparison
+models <- c("Multinomial Logistic Regression", "Naive Bayes", "LDA", "Random Forest", "SVM", "Decision Tree", "Neural Network", "kNN")
+test_accuracies <- c(multinom_accuracy, nb_accuracy, lda_accuracy, rf_accuracy, svm_accuracy, tree_accuracy, nn_accuracy, knn_accuracy)
+
+
+# Create a data frame
+accuracy_data <- data.frame(Model = models, Accuracy = test_accuracies)
+library(RColorBrewer)
+
+# Define a good color palette
+palette_colors <- brewer.pal(n = length(unique(accuracy_data$Model)), name = "Set3")
+
+
+# Sort the accuracy dataframe by Accuracy in descending order
+sorted_accuracy_data <- accuracy_data[order(-accuracy_data$Accuracy), ]
+
+# Print the sorted accuracy dataframe
+print(sorted_accuracy_data)
+
+
+# Initialize vectors to store TP, TN, FP, FN
+TP <- numeric(length(models))
+TN <- numeric(length(models))
+FP <- numeric(length(models))
+FN <- numeric(length(models))
+
+# Function to calculate TP, TN, FP, FN
+calculate_metrics <- function(predictions, actual) {
+  TP <- sum(predictions == actual & predictions == "Obesity_Type_I")
+  TN <- sum(predictions != actual & predictions != "Obesity_Type_I")
+  FP <- sum(predictions == "Obesity_Type_I" & actual != "Obesity_Type_I")
+  FN <- sum(predictions != "Obesity_Type_I" & actual == "Obesity_Type_I")
+  return(c(TP = TP, TN = TN, FP = FP, FN = FN))
+}
+
+# Calculate TP, TN, FP, FN for each model
+for (i in 1:length(models)) {
+  if (models[i] == "Multinomial Logistic Regression") {
+    metrics <- calculate_metrics(test_predictions, test_actual_classes)
+  } else if (models[i] == "Naive Bayes") {
+    metrics <- calculate_metrics(predictions, actual)
+  } else if (models[i] == "LDA") {
+    metrics <- calculate_metrics(predicted_labels, actual_labels)
+  } else if (models[i] == "Random Forest") {
+    metrics <- calculate_metrics(rf_pred_imputed, test_data$NObeyesdad)
+  } else if (models[i] == "SVM") {
+    metrics <- calculate_metrics(svm_pred, test_data$NObeyesdad)
+  } else if (models[i] == "Decision Tree") {
+    metrics <- calculate_metrics(tree_predictions, tree_actual_classes)
+  }
+  
+  TP[i] <- metrics["TP"]
+  TN[i] <- metrics["TN"]
+  FP[i] <- metrics["FP"]
+  FN[i] <- metrics["FN"]
+}
+
+# Calculate sensitivity and specificity
+sensitivity <- TP / (TP + FN)
+specificity <- TN / (TN + FP)
+
+# Create a dataframe to store results
+metrics_data <- data.frame(Model = models, Accuracy=test_accuracies,Sensitivity = sensitivity, Specificity = specificity)
+
+sorted_metrics_data <- metrics_data %>% arrange(desc(Accuracy))
+
+# Print the sorted metrics data frame
+print(sorted_metrics_data)
+
+# Print the dataframe
+print(metrics_data)
+ggplot(metrics_data, aes(x = Model, y = Sensitivity, fill = Model)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Sensitivity of Different Models",
+       x = "Model", y = "Sensitivity") +
+  scale_fill_manual(values = palette_colors) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot Specificity
+ggplot(metrics_data, aes(x = Model, y = Specificity, fill = Model)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Specificity of Different Models",
+       x = "Model", y = "Specificity") +
+  scale_fill_manual(values = palette_colors) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot Accuracy (if not already included)
+ggplot(metrics_data, aes(x = Model, y = Accuracy, fill = Model)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Accuracy of Different Models",
+       x = "Model", y = "Accuracy") +
+  scale_fill_manual(values = palette_colors) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+
+```
+
+
+```{r}
+# Load necessary libraries
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Define the number of folds
+k <- 5 
+train_control <- trainControl(method = "cv", number = k)
+
+# Function to perform k-fold cross-validation for different models
+evaluate_model <- function(model_formula, method, train_data, train_control) {
+  train(model_formula, data = train_data, method = method, trControl = train_control)
+}
+
+# Function to calculate metrics: accuracy, sensitivity, specificity
+calculate_metrics <- function(predictions, actual) {
+  conf_matrix <- confusionMatrix(predictions, actual)
+  accuracy <- conf_matrix$overall["Accuracy"]
+  return(c(accuracy))
+}
+
+# Initialize lists to store metrics for each model
+model_names <- c("Multinomial Logistic Regression", "Naive Bayes", "LDA", "Random Forest", "SVM", "Decision Tree", "Neural Network", "kNN")
+accuracies <- c()
+
+
+# Multinomial Logistic Regression
+multinom_model <- evaluate_model(NObeyesdad ~ ., "multinom", train_data, train_control)
+multinom_predictions <- predict(multinom_model, newdata = test_data)
+metrics <- calculate_metrics(multinom_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+# Naive Bayes
+nb_model <- evaluate_model(NObeyesdad ~ ., "nb", train_data, train_control)
+nb_predictions <- predict(nb_model, newdata = test_data)
+metrics <- calculate_metrics(nb_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+
+# Linear Discriminant Analysis (LDA)
+lda_model <- evaluate_model(NObeyesdad ~ ., "lda", train_data, train_control)
+lda_predictions <- predict(lda_model, newdata = test_data)
+metrics <- calculate_metrics(lda_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+
+# Random Forest
+rf_model <- evaluate_model(NObeyesdad ~ ., "rf", train_data, train_control)
+rf_predictions <- predict(rf_model, newdata = test_data)
+metrics <- calculate_metrics(rf_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+# Support Vector Machine (SVM)
+svm_model <- evaluate_model(NObeyesdad ~ ., "svmRadial", train_data, train_control)
+svm_predictions <- predict(svm_model, newdata = test_data)
+metrics <- calculate_metrics(svm_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+
+# Decision Tree
+tree_model <- evaluate_model(NObeyesdad ~ ., "rpart", train_data, train_control)
+tree_predictions <- predict(tree_model, newdata = test_data)
+metrics <- calculate_metrics(tree_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+# Neural Network
+nn_model <- evaluate_model(NObeyesdad ~ ., "nnet", train_data_norm, train_control)
+nn_predictions <- predict(nn_model, newdata = test_data)
+metrics <- calculate_metrics(nn_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+
+# k-Nearest Neighbors (kNN)
+# Preprocess the data for normalization
+preproc <- preProcess(train_data[, sapply(train_data, is.numeric)], method = c("center", "scale"))
+train_data_norm <- predict(preproc, train_data)
+test_data_norm <- predict(preproc, test_data)
+
+# kNN model (tuneGrid for k values)
+knn_model <- train(NObeyesdad ~ ., data = train_data_norm, method = "knn", trControl = train_control, tuneGrid = expand.grid(.k = 5))
+knn_predictions <- predict(knn_model, newdata = test_data_norm)
+metrics <- calculate_metrics(knn_predictions, test_data$NObeyesdad)
+accuracies <- c(accuracies, metrics[1])
+
+# Combine all metrics into a data frame
+metrics_data <- data.frame(
+  Model = model_names,
+  Accuracy = accuracies
+
+)
+
+# Print the metrics data frame
+print(metrics_data)
+
+# Sort the data frame based on accuracies
+sorted_metrics_data <- metrics_data %>% arrange(desc(Accuracy))
+
+# Print the sorted metrics data frame
+print(sorted_metrics_data)
+
+# Plot the accuracies
+ggplot(sorted_metrics_data, aes(x =Accuracy, y = Model, fill = Model)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Accuracy of Different Models",
+       x = "Model",
+       y = "Accuracy") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set3")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
